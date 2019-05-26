@@ -1,0 +1,9 @@
+[package]
+name = "maf_junk"
+version = "0.1.0"
+authors = ["Joel Armstrong <jcarmstr@ucsc.edu>"]
+edition = "2018"
+
+[dependencies]
+multiple_alignment_format = { path = "../Dropbox/src/multiple_alignment_format" }
+clap = "^2"
