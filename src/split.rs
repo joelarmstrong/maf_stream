@@ -12,6 +12,7 @@ struct MAFSplit {
     cur_length: Option<u64>,
     cur_file: Option<BufWriter<File>>,
     output_dir: PathBuf,
+    /// Maximum aligned length (in reference) per file.
     max_length: u64,
 }
 
@@ -26,6 +27,8 @@ impl MAFSplit {
         }
     }
 
+    /// Outputs this block to the correct file, opening a new one if
+    /// needed.
     fn output_block(&mut self, block: &MAFBlock) {
         let ref_line = block.aligned_entries().next();
         if let Some(ref_aln) = ref_line {
@@ -96,6 +99,11 @@ s       Human.chr21     217     32      +       9688985 aacctttcctttgctagagcactt
         let tempdir = TempDir::new().unwrap();
         let output_dir = tempdir.path().to_str().unwrap();
         split_maf(&mut input_maf.as_bytes(), 84, &output_dir);
+
+        // The first two blocks should fit in one file, the third
+        // should spill over into another file, and the fourth should
+        // go into yet another file (since it switches reference
+        // chromosome).
         assert!(Path::exists(&tempdir.path().join("chr21_chr20.0.maf")));
         assert!(!Path::exists(&tempdir.path().join("chr21_chr20.54.maf")));
         assert!(Path::exists(&tempdir.path().join("chr21_chr20.82.maf")));
