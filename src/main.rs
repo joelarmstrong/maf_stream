@@ -1,10 +1,12 @@
 use std::fs::File;
 use std::io;
 use std::io::{stdout, BufRead, BufReader, Write};
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg, SubCommand, value_t};
 
 mod dup_blocks;
 use dup_blocks::{output_dup_blocks, output_merged_consensus_blocks, ConsensusMode};
+mod split;
+use split::split_maf;
 
 fn main() {
     let matches = App::new("maf_junk")
@@ -20,6 +22,10 @@ fn main() {
                                             "consensus",
                                             "mask"])))
         .subcommand(SubCommand::with_name("to_fasta"))
+        .subcommand(SubCommand::with_name("split")
+                    .arg(Arg::with_name("output_dir")
+                         .required(true))
+                    .arg(Arg::with_name("max_length")))
         .get_matches();
 
     let stdin = io::stdin();
@@ -39,5 +45,8 @@ fn main() {
     } else if let Some(matches) = matches.subcommand_matches("to_fasta") {
         unimplemented!();
         //maf_to_fasta(&mut input, &mut output);
+    } else if let Some(matches) = matches.subcommand_matches("split") {
+        let max_length = value_t!(matches, "max_length", u64).unwrap_or(100000);
+        split_maf(&mut input, max_length, matches.value_of("output_dir").unwrap());
     }
 }

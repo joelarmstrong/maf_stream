@@ -4,7 +4,7 @@ extern crate maplit;
 
 pub mod parser;
 pub mod output;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Structure representing a MAF item (comment or block).
 #[derive(Debug, PartialEq, Eq)]
@@ -136,4 +136,17 @@ pub enum UnalignedContextStatus {
     /// a double line based on how many bases are in the gap between
     /// the bridging alignments."
     NewSequence,
+}
+
+impl MAFBlock {
+    pub fn aligned_entries(&self) -> impl Iterator<Item=&MAFBlockAlignedEntry> {
+        self.entries.iter()
+            .filter_map(|e| match e { MAFBlockEntry::AlignedEntry(a) => Some(a), _ => None })
+    }
+
+    pub fn entries_as_hash(&self) -> HashMap<&str, Vec<&MAFBlockAlignedEntry>> {
+        self.aligned_entries()
+            .map(|a| (a.seq.split(".").next().unwrap(), a))
+            .fold(HashMap::new(), |mut acc: HashMap<&str, Vec<&MAFBlockAlignedEntry>>, (species, a)| { acc.entry(species).or_insert_with(Vec::new).push(a); acc })
+    }
 }

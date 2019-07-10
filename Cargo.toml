@@ -1,5 +1,5 @@
 [package]
-name = "maf_junk"
+name = "maf_stream"
 version = "0.1.0"
 authors = ["Joel Armstrong <jcarmstr@ucsc.edu>"]
 edition = "2018"
@@ -8,3 +8,4 @@ edition = "2018"
 multiple_alignment_format = { path = "multiple_alignment_format" }
 clap = "^2"
 tempfile = "^3"
+itertools = "^0.8"

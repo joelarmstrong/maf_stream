@@ -3,19 +3,8 @@ use multiple_alignment_format::{MAFBlock, MAFItem, MAFBlockEntry, MAFBlockAligne
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
 
-fn aligned_entries(block: &MAFBlock) -> impl Iterator<Item=&MAFBlockAlignedEntry> {
-    block.entries.iter()
-        .filter_map(|e| match e { MAFBlockEntry::AlignedEntry(a) => Some(a), _ => None })
-}
-
-fn entries_as_hash(block: &MAFBlock) -> HashMap<&str, Vec<&MAFBlockAlignedEntry>> {
-    aligned_entries(block)
-        .map(|a| (a.seq.split(".").next().unwrap(), a))
-        .fold(HashMap::new(), |mut acc: HashMap<&str, Vec<&MAFBlockAlignedEntry>>, (species, a)| { acc.entry(species).or_insert_with(Vec::new).push(a); acc })
-}
-
 fn dup_entries_from_block(block: &MAFBlock) -> HashMap<&str, Vec<&MAFBlockAlignedEntry>> {
-    let mut hash = entries_as_hash(block);
+    let mut hash = block.entries_as_hash();
     hash.retain(|_, v| v.len() > 1);
     hash
 }
@@ -143,7 +132,7 @@ pub fn output_merged_consensus_blocks(input: &mut dyn BufRead, output: &mut dyn 
             MAFItem::Comment(comment) => { write!(output, "#{}\n", comment); },
             MAFItem::Block(mut block) => {
                 let dup_entries = dup_entries_from_block(&block);
-                let aligned_entries: Vec<_> = aligned_entries(&block).collect();
+                let aligned_entries: Vec<_> = block.aligned_entries().collect();
                 let block_counts = get_consensus_info(&aligned_entries);
 
                 // Clear out duplicated entries within the block.
@@ -261,7 +250,7 @@ s       Alca_torda.scaffold4709 41641   6       -       157682  G-A
 ";
         let item = next_maf_item(&mut block.as_bytes()).expect("Couldn't parse MAF block");
         if let MAFItem::Block(block) = item {
-            let alignments: Vec<_> = aligned_entries(&block).collect();
+            let alignments: Vec<_> = block.aligned_entries().collect();
             let counts = get_consensus_info(&alignments);
             let expected_counts = vec![
                 BaseCounts { a: 0, c: 1, t: 1, g: 1, },
