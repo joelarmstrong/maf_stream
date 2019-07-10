@@ -1,0 +1,9 @@
+[package]
+name = "multiple_alignment_format"
+version = "0.1.0"
+authors = ["Joel Armstrong <jcarmstr@ucsc.edu>"]
+
+[dependencies]
+
+[dev-dependencies]
+maplit = "^1"

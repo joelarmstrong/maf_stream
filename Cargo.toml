@@ -5,6 +5,6 @@ authors = ["Joel Armstrong <jcarmstr@ucsc.edu>"]
 edition = "2018"
 
 [dependencies]
-multiple_alignment_format = { path = "../Dropbox/src/multiple_alignment_format" }
+multiple_alignment_format = { path = "multiple_alignment_format" }
 clap = "^2"
 tempfile = "^3"
