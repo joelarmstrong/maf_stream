@@ -1,7 +1,7 @@
 use multiple_alignment_format::parser::next_maf_item;
 use multiple_alignment_format::{MAFBlock, MAFItem, MAFBlockEntry, MAFBlockAlignedEntry};
 use std::collections::HashMap;
-use std::io::{BufRead, Write, BufWriter, Seek, SeekFrom};
+use std::io::{BufRead, Read, Write, BufWriter, Seek, SeekFrom};
 use std::fs::File;
 
 use tempfile::tempfile;

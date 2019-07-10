@@ -5,8 +5,6 @@ use clap::{App, Arg, SubCommand};
 
 mod dup_blocks;
 use dup_blocks::{output_dup_blocks, output_merged_consensus_blocks, ConsensusMode};
-mod fasta;
-use fasta::maf_to_fasta;
 
 fn main() {
     let matches = App::new("maf_junk")
@@ -39,6 +37,7 @@ fn main() {
         };
         output_merged_consensus_blocks(&mut input, &mut output, mode);
     } else if let Some(matches) = matches.subcommand_matches("to_fasta") {
-        maf_to_fasta(&mut input, &mut output);
+        unimplemented!();
+        //maf_to_fasta(&mut input, &mut output);
     }
 }
