@@ -136,6 +136,9 @@ pub enum UnalignedContextStatus {
     /// a double line based on how many bases are in the gap between
     /// the bridging alignments."
     NewSequence,
+    /// "T" in the original MAF line. This isn't supposed to happen
+    /// according to the docs, but MULTIZ seems to output it. Whatevs.
+    AlreadyUsed,
 }
 
 impl MAFBlock {

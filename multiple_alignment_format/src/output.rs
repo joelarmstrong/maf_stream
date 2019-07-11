@@ -25,6 +25,7 @@ fn unaligned_context_status_char(status: &UnalignedContextStatus) -> &'static st
         Insertion => "I",
         MissingData => "M",
         NewSequence => "n",
+        AlreadyUsed => "T",
     }
 }
 

@@ -199,12 +199,12 @@ fn update_from_e_line(fields: &mut Vec<&str>, block_entries: &mut Vec<MAFBlockEn
         .and_then(|s| s.parse::<u64>().map_err(|_| MAFParseError::Misc("invalid start")))?;
     let seq = fields.pop()
         .ok_or(MAFParseError::Misc("e line incomplete"))?;
-
     let status = match status_char {
         "C" => UnalignedContextStatus::Deletion,
         "I" => UnalignedContextStatus::Insertion,
         "M" => UnalignedContextStatus::MissingData,
         "n" => UnalignedContextStatus::NewSequence,
+        "T" => UnalignedContextStatus::AlreadyUsed,
         _   => return Err(MAFParseError::Misc("invalid unaligned context status character")),
     };
     block_entries.push(MAFBlockEntry::UnalignedEntry(MAFBlockUnalignedEntry {
