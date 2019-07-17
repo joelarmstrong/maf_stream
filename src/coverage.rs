@@ -74,10 +74,10 @@ impl MAFCoverage {
             if !aligned_base(ref_entry.alignment[i]) {
                 continue;
             }
-            let ref_pos = dbg!(match ref_entry.strand {
+            let ref_pos = match ref_entry.strand {
                 Strand::Positive => ref_entry.start + ref_offset,
                 Strand::Negative => ref_entry.sequence_size - ref_entry.start - ref_offset,
-            });
+            };
             ref_offset += 1;
             if !self.in_range(&ref_entry.seq.split(".").skip(1).join("."), ref_pos) {
                 continue;
