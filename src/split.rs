@@ -1,6 +1,6 @@
 use multiple_alignment_format::parser::next_maf_item;
-use multiple_alignment_format::{MAFBlock, MAFItem, MAFBlockEntry, MAFBlockAlignedEntry};
-use std::io::{BufRead, Read, Write, BufWriter, Seek, SeekFrom};
+use multiple_alignment_format::{MAFBlock, MAFItem};
+use std::io::{BufRead, Write, BufWriter};
 use std::path::PathBuf;
 use std::fs::File;
 use itertools::Itertools;

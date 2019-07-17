@@ -50,7 +50,7 @@ fn main() {
             _ => panic!("Unknown consensus mode"),
         };
         output_merged_consensus_blocks(&mut input, &mut output, mode);
-    } else if let Some(matches) = matches.subcommand_matches("to_fasta") {
+    } else if let Some(_matches) = matches.subcommand_matches("to_fasta") {
         unimplemented!();
         //maf_to_fasta(&mut input, &mut output);
     } else if let Some(matches) = matches.subcommand_matches("split") {

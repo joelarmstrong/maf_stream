@@ -129,7 +129,7 @@ fn get_consensus_info(entries: &[&MAFBlockAlignedEntry]) -> Vec<BaseCounts> {
 pub fn output_merged_consensus_blocks(input: &mut dyn BufRead, output: &mut dyn Write, mode: ConsensusMode) {
     while let Ok(item) = next_maf_item(input) {
         match item {
-            MAFItem::Comment(comment) => { write!(output, "#{}\n", comment); },
+            MAFItem::Comment(comment) => { write!(output, "#{}\n", comment).ok(); },
             MAFItem::Block(mut block) => {
                 let dup_entries = dup_entries_from_block(&block);
                 let aligned_entries: Vec<_> = block.aligned_entries().collect();
@@ -142,7 +142,7 @@ pub fn output_merged_consensus_blocks(input: &mut dyn BufRead, output: &mut dyn 
                 let dup_entries = merge_dup_entries(&dup_entries, &block_counts, mode);
                 block.entries = new_block_entries;
                 block.entries.extend(dup_entries);
-                write!(output, "{}\n", block);
+                write!(output, "{}\n", block).ok();
             },
         }
     }
@@ -151,10 +151,10 @@ pub fn output_merged_consensus_blocks(input: &mut dyn BufRead, output: &mut dyn 
 pub fn output_dup_blocks(input: &mut dyn BufRead, output: &mut dyn Write) {
     while let Ok(item) = next_maf_item(input) {
         match item {
-            MAFItem::Comment(comment) => { write!(output, "#{}\n", comment); },
+            MAFItem::Comment(comment) => { write!(output, "#{}\n", comment).ok(); },
             MAFItem::Block(block) => {
                 if block_contains_dups(&block) {
-                    write!(output, "{}", block);
+                    write!(output, "{}", block).ok();
                 }
             },
         }
