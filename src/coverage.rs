@@ -95,7 +95,7 @@ impl MAFCoverage {
         };
         for (genome, coverage) in self.coverage.iter() {
             writeln!(output, "{}\t{}\t{}\t{}\t{}", self.ref_genome, genome,
-                     total, coverage / total, coverage);
+                     total, (*coverage as f64) / (total as f64), coverage);
         }
     }
 
