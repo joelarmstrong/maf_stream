@@ -7,6 +7,8 @@ mod dup_blocks;
 use dup_blocks::{output_dup_blocks, output_merged_consensus_blocks, ConsensusMode};
 mod split;
 use split::split_maf;
+mod coverage;
+use coverage::coverage;
 
 fn main() {
     let matches = App::new("maf_junk")
@@ -26,6 +28,10 @@ fn main() {
                     .arg(Arg::with_name("output_dir")
                          .required(true))
                     .arg(Arg::with_name("max_length")))
+        .subcommand(SubCommand::with_name("coverage")
+                    .arg(Arg::with_name("ref_genome")
+                         .required(true))
+                    .arg(Arg::with_name("bed")))
         .get_matches();
 
     let stdin = io::stdin();
@@ -48,5 +54,9 @@ fn main() {
     } else if let Some(matches) = matches.subcommand_matches("split") {
         let max_length = value_t!(matches, "max_length", u64).unwrap_or(100000);
         split_maf(&mut input, max_length, matches.value_of("output_dir").unwrap());
+    } else if let Some(matches) = matches.subcommand_matches("coverage") {
+        let bed_file = matches.value_of("bed").map(|path| BufReader::new(File::open(path).expect("Couldn't open bed file")));
+        let ref_genome = matches.value_of("ref_genome").unwrap();
+        coverage(&mut input, &mut output, ref_genome, bed_file);
     }
 }
