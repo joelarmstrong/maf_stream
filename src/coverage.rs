@@ -27,9 +27,13 @@ impl PartialOrd for Range {
 struct MAFCoverage {
     /// Coverage by genome.
     coverage: HashMap<String, u64>,
+    /// Optional ranges to filter on. Any alignments not within these
+    /// ranges will be ignored.
     ranges: Option<BTreeSet<Range>>,
     ref_genome: String,
-    ref_length: u64,
+    /// Sequence name -> length in reference genome. Used for
+    /// calculating the total at the end when not filtering by ranges.
+    ref_lengths: HashMap<String, u64>,
 }
 
 fn aligned_base(base: u8) -> bool {
@@ -45,7 +49,7 @@ impl MAFCoverage {
             coverage: HashMap::new(),
             ref_genome: ref_genome.to_string(),
             ranges,
-            ref_length: 0,
+            ref_lengths: HashMap::new(),
         }
     }
 
@@ -84,13 +88,15 @@ impl MAFCoverage {
                 }
             }
         }
-        self.ref_length += ref_entry.aligned_length;
+        if !self.ref_lengths.contains_key(&ref_entry.seq) {
+            self.ref_lengths.insert(ref_entry.seq.clone(), ref_entry.sequence_size);
+        }
     }
 
     fn print(&self, output: &mut dyn Write) {
         writeln!(output, "# referenceSpecies/Chr\tquerySpecies/Chr\tlengthOfReference\tpercentCoverage\tbasesCoverage");
-        let total = match &self.ranges {
-            None => self.ref_length,
+        let total: u64 = match &self.ranges {
+            None => self.ref_lengths.values().sum(),
             Some(set) => set.iter().map(|p| p.end - p.start).sum(),
         };
         for (genome, coverage) in self.coverage.iter() {
@@ -108,7 +114,6 @@ impl MAFCoverage {
                     start: position,
                     end: position + 1,
                 };
-                dbg!(set.range(..=&pos).next_back());
                 match set.range(..=pos).next_back() {
                     None => false,
                     Some(range) => range.seq == chrom && range.start <= position && range.end > position,
@@ -120,16 +125,20 @@ impl MAFCoverage {
 
 fn parse_bed(bed: impl BufRead) -> BTreeSet<Range> {
     bed.lines()
-       .map(|line_res| {
+       .filter_map(|line_res| {
            let line = line_res.expect("Can't read line");
            let fields: Vec<_> = line.split_whitespace().collect();
            if fields.len() > 9 {
                panic!("BED12 input not supported");
+           } else if fields.len() > 0 {
+               let seq = fields[0].to_string();
+               let start: u64 = fields[1].parse().expect("Can't parse start position");
+               let end: u64 = fields[2].parse().expect("Can't parse start position");
+               Some(Range { seq, start, end })
+           } else {
+               // Blank line
+               None
            }
-           let seq = fields[0].to_string();
-           let start: u64 = fields[1].parse().expect("Can't parse start position");
-           let end: u64 = fields[2].parse().expect("Can't parse start position");
-           Range { seq, start, end }
        }).collect()
 }
 
@@ -190,5 +199,73 @@ mod tests {
         assert!(!maf_coverage.in_range("chr2", 12));
         assert!(maf_coverage.in_range("chrW", 35));
         assert!(!maf_coverage.in_range("chrZ", 36));
+    }
+
+    #[test]
+    fn test_add_block_no_bed() {
+        let block = "a
+s       Erythrocercus_mccallii.scaffold_2093    58535   2       +       127396  T-G
+s       Eubucco_bourcierii.scaffold13745        58548   3       +       73788   CCC
+s       Eudromia_elegans.scaffold_5     12617300        3       +       13876364        AAA
+s       Eulacestoma_nigropectus.scaffold148     3647521 3       +       4202789 TTT
+s       Eurypyga_helias.scaffold13804   27799   3       +       30980   GGG
+s       Eurystomus_gularis.scaffold6487 121546  3       +       203918  TTT
+s       Formicarius_rufipectus.scaffold473      3224110 3       -       3420713 TTT
+s       Fregata_magnificens.C5769372__2.0       142     3       +       150     TTT
+s       Fregetta_grallaria.scaffold_297 174414  3       -       673556  TTT
+s       Fulmarus_glacialis.scaffold7044 80945   3       +       82154   TTT
+s       Furnarius_figulus.scaffold_634  115343  3       +       392412  TTT
+s       Galbula_dea.scaffold1422        3938    3       -       1348798 CCC
+s       Gavia_stellata.scaffold9486     35556   3       +       49599   TTT
+s       Geococcyx_californianus.scaffold6221    68277   3       +       96248   TTT
+s       Geospiza_fortis.scaffold54      15705654        3       -       19033121        TT-
+s       Glareola_pratincola.scaffold_8  396272  3       -       2357087 -C-
+s       Glaucidium_brasilianum.scaffold_161     1648450 3       -       1875072 TTT
+";
+        let mut maf_coverage = MAFCoverage::new("Erythrocercus_mccallii", None);
+        let item = next_maf_item(&mut block.as_bytes()).expect("Couldn't parse MAF block");
+        if let MAFItem::Block(block) = item {
+            maf_coverage.add_block(block);
+        } else {
+            assert!(false, "Got unexpected maf item {:?}", item);
+        }
+        assert_eq!(maf_coverage.coverage["Gavia_stellata"], 2);
+        assert_eq!(maf_coverage.coverage["Geospiza_fortis"], 1);
+        assert!(!maf_coverage.coverage.contains_key("Glareola_partincola"));
+    }
+
+
+    #[test]
+    fn test_parse_bed() {
+        let bed = "
+chr1 200 300
+chrZ 300 600
+chr10 2 3
+chr10 10 15
+";
+        let ranges = parse_bed(bed.as_bytes());
+        let expected_ranges: BTreeSet<_> = vec![
+            Range {
+                seq: "chr1".to_string(),
+                start: 200,
+                end: 300,
+            },
+            Range {
+                seq: "chrZ".to_string(),
+                start: 300,
+                end: 600,
+            },
+            Range {
+                seq: "chr10".to_string(),
+                start: 2,
+                end: 3,
+            },
+            Range {
+                seq: "chr10".to_string(),
+                start: 10,
+                end: 15,
+            },
+        ].into_iter().collect();
+        assert_eq!(ranges, expected_ranges);
     }
 }
