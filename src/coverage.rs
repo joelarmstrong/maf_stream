@@ -1,8 +1,8 @@
+use itertools::Itertools;
 use multiple_alignment_format::parser::next_maf_item;
-use multiple_alignment_format::{MAFBlock, MAFItem, MAFBlockEntry, MAFBlockAlignedEntry};
+use multiple_alignment_format::{MAFBlock, MAFItem, MAFBlockAlignedEntry, Strand};
 use std::cmp::{Ordering, Reverse};
 use std::collections::{BTreeSet, HashMap};
-use std::fs::File;
 use std::io::{BufRead, Write};
 
 #[derive(PartialEq, Eq, Debug)]
@@ -64,11 +64,22 @@ impl MAFCoverage {
     }
 
     fn add_block_with_ref_entry(&mut self, ref_entry: &MAFBlockAlignedEntry, entries: &HashMap<&str, Vec<&MAFBlockAlignedEntry>>) {
+        // Offset within reference sequence (different than offset within block alignment)
+        let mut ref_offset = 0;
         for i in 0..ref_entry.alignment.len() {
-            // Within each column, add a base of coverage to a genome
-            // if at least one entry in the genome is aligned (not a
-            // gap) and the reference is aligned (not a gap).
+            // Within each column, add a base of coverage to a genome if:
+            // - at least one entry in the genome is aligned (not a gap)
+            // - the reference is aligned (not a gap)
+            // - the reference base covered by the BED file (if provided)
             if !aligned_base(ref_entry.alignment[i]) {
+                continue;
+            }
+            let ref_pos = dbg!(match ref_entry.strand {
+                Strand::Positive => ref_entry.start + ref_offset,
+                Strand::Negative => ref_entry.sequence_size - ref_entry.start - ref_offset,
+            });
+            ref_offset += 1;
+            if !self.in_range(&ref_entry.seq.split(".").skip(1).join("."), ref_pos) {
                 continue;
             }
             for (genome, genome_entries) in entries {
@@ -94,14 +105,14 @@ impl MAFCoverage {
     }
 
     fn print(&self, output: &mut dyn Write) {
-        writeln!(output, "# referenceSpecies/Chr\tquerySpecies/Chr\tlengthOfReference\tpercentCoverage\tbasesCoverage");
+        writeln!(output, "# referenceSpecies/Chr\tquerySpecies/Chr\tlengthOfReference\tpercentCoverage\tbasesCoverage").ok();
         let total: u64 = match &self.ranges {
             None => self.ref_lengths.values().sum(),
             Some(set) => set.iter().map(|p| p.end - p.start).sum(),
         };
         for (genome, coverage) in self.coverage.iter() {
             writeln!(output, "{}\t{}\t{}\t{}\t{}", self.ref_genome, genome,
-                     total, (*coverage as f64) / (total as f64), coverage);
+                     total, (*coverage as f64) / (total as f64), coverage).ok();
         }
     }
 
@@ -201,20 +212,11 @@ mod tests {
         assert!(!maf_coverage.in_range("chrZ", 36));
     }
 
+    // Simple test (no region filtering)
     #[test]
     fn test_add_block_no_bed() {
         let block = "a
 s       Erythrocercus_mccallii.scaffold_2093    58535   2       +       127396  T-G
-s       Eubucco_bourcierii.scaffold13745        58548   3       +       73788   CCC
-s       Eudromia_elegans.scaffold_5     12617300        3       +       13876364        AAA
-s       Eulacestoma_nigropectus.scaffold148     3647521 3       +       4202789 TTT
-s       Eurypyga_helias.scaffold13804   27799   3       +       30980   GGG
-s       Eurystomus_gularis.scaffold6487 121546  3       +       203918  TTT
-s       Formicarius_rufipectus.scaffold473      3224110 3       -       3420713 TTT
-s       Fregata_magnificens.C5769372__2.0       142     3       +       150     TTT
-s       Fregetta_grallaria.scaffold_297 174414  3       -       673556  TTT
-s       Fulmarus_glacialis.scaffold7044 80945   3       +       82154   TTT
-s       Furnarius_figulus.scaffold_634  115343  3       +       392412  TTT
 s       Galbula_dea.scaffold1422        3938    3       -       1348798 CCC
 s       Gavia_stellata.scaffold9486     35556   3       +       49599   TTT
 s       Geococcyx_californianus.scaffold6221    68277   3       +       96248   TTT
@@ -231,9 +233,88 @@ s       Glaucidium_brasilianum.scaffold_161     1648450 3       -       1875072 
         }
         assert_eq!(maf_coverage.coverage["Gavia_stellata"], 2);
         assert_eq!(maf_coverage.coverage["Geospiza_fortis"], 1);
-        assert!(!maf_coverage.coverage.contains_key("Glareola_partincola"));
+        assert_eq!(maf_coverage.coverage["Erythrocercus_mccallii"], 2);
+        assert!(!maf_coverage.coverage.contains_key("Glareola_pratincola"));
     }
 
+    // Test w/ multiple reference entries
+    #[test]
+    fn test_add_block_multi_ref() {
+        let block = "a
+s       Erythrocercus_mccallii.scaffold_2093    58535   2       +       127396  T-G
+s       Erythrocercus_mccallii.scaffold_333    3213   2       +       33451  TG-
+s       Galbula_dea.scaffold1422        3938    3       -       1348798 CCC
+s       Gavia_stellata.scaffold9486     35556   3       +       49599   TTT
+s       Geococcyx_californianus.scaffold6221    68277   3       +       96248   TTT
+s       Geospiza_fortis.scaffold54      15705654        3       -       19033121        TT-
+s       Glareola_pratincola.scaffold_8  396272  3       -       2357087 -C-
+s       Glaucidium_brasilianum.scaffold_161     1648450 3       -       1875072 TTT
+";
+        let mut maf_coverage = MAFCoverage::new("Erythrocercus_mccallii", None);
+        let item = next_maf_item(&mut block.as_bytes()).expect("Couldn't parse MAF block");
+        if let MAFItem::Block(block) = item {
+            maf_coverage.add_block(block);
+        } else {
+            assert!(false, "Got unexpected maf item {:?}", item);
+        }
+        assert_eq!(maf_coverage.coverage["Gavia_stellata"], 4);
+        assert_eq!(maf_coverage.coverage["Geospiza_fortis"], 3);
+        assert_eq!(maf_coverage.coverage["Erythrocercus_mccallii"], 4);
+        assert_eq!(maf_coverage.coverage["Glareola_pratincola"], 1);
+    }
+
+    // Test with region filtering
+    #[test]
+    fn test_add_block_with_bed() {
+        let block = "a
+s       Erythrocercus_mccallii.scaffold_2093    58535   2       +       127396  T-G
+s       Galbula_dea.scaffold1422        3938    3       -       1348798 CCC
+s       Gavia_stellata.scaffold9486     35556   3       +       49599   TTT
+s       Geococcyx_californianus.scaffold6221    68277   3       +       96248   TTT
+s       Geospiza_fortis.scaffold54      15705654        3       -       19033121        TT-
+s       Glareola_pratincola.scaffold_8  396272  3       -       2357087 -C-
+s       Glaucidium_brasilianum.scaffold_161     1648450 3       -       1875072 TTT
+";
+        let regions: BTreeSet<_> = vec![
+            Range {
+                seq: "scaffold_2093".to_string(),
+                start: 58536,
+                end: 58538,
+            },
+        ].into_iter().collect();
+        let mut maf_coverage = MAFCoverage::new("Erythrocercus_mccallii", Some(regions));
+        let item = next_maf_item(&mut block.as_bytes()).expect("Couldn't parse MAF block");
+        if let MAFItem::Block(block) = item {
+            maf_coverage.add_block(block);
+        } else {
+            assert!(false, "Got unexpected maf item {:?}", item);
+        }
+        assert_eq!(maf_coverage.coverage["Gavia_stellata"], 1);
+        assert!(!maf_coverage.coverage.contains_key("Geospiza_fortis"));
+        assert_eq!(maf_coverage.coverage["Erythrocercus_mccallii"], 1);
+        assert!(!maf_coverage.coverage.contains_key("Glareola_pratincola"));
+
+        // Test with negative-strand reference
+        let block = "a
+s       Erythrocercus_mccallii.scaffold_2093    68858   2       -       127396  T-G
+s       Galbula_dea.scaffold1422        3938    3       -       1348798 CCC
+s       Gavia_stellata.scaffold9486     35556   3       +       49599   TTT
+s       Geococcyx_californianus.scaffold6221    68277   3       +       96248   TTT
+s       Geospiza_fortis.scaffold54      15705654        3       -       19033121        TT-
+s       Glareola_pratincola.scaffold_8  396272  3       -       2357087 -C-
+s       Glaucidium_brasilianum.scaffold_161     1648450 3       -       1875072 TTT
+";
+        let item = next_maf_item(&mut block.as_bytes()).expect("Couldn't parse MAF block");
+        if let MAFItem::Block(block) = item {
+            maf_coverage.add_block(block);
+        } else {
+            assert!(false, "Got unexpected maf item {:?}", item);
+        }
+        assert_eq!(maf_coverage.coverage["Gavia_stellata"], 2);
+        assert!(!maf_coverage.coverage.contains_key("Geospiza_fortis"));
+        assert_eq!(maf_coverage.coverage["Erythrocercus_mccallii"], 2);
+        assert!(!maf_coverage.coverage.contains_key("Glareola_pratincola"));
+    }
 
     #[test]
     fn test_parse_bed() {

@@ -31,9 +31,11 @@ fn main() {
         .subcommand(SubCommand::with_name("coverage")
                     .arg(Arg::with_name("ref_genome")
                          .required(true))
-                    .arg(Arg::with_name("bed")))
+                    .arg(Arg::with_name("bed")
+                         .long("bed")
+                         .takes_value(true)))
         .get_matches();
-
+    
     let stdin = io::stdin();
     let mut input = matches.value_of("input_maf").map(|p| Box::new(BufReader::new(File::open(p).expect("Couldn't open input file"))) as Box<BufRead>).unwrap_or(Box::new(stdin.lock()));
     let mut output = matches.value_of("output").map(|p| Box::new(File::create(p).expect("Couldn't create output file")) as Box<Write>).unwrap_or(Box::new(stdout()));
