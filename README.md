@@ -19,9 +19,9 @@ Available merging modes:
 - `unanimity`: Replace duplicated entries with a single entry (containing N if there are different bases within the duplicates, containing the unanimous base if the duplicate entries all agree).
 - `mask`: Replace duplicated entries with single masked entry (containing all Ns).
 #### Splitting a MAF (by reference sequence and maximum length)
-`maf_stream <output dir> --max_length <max length per file> <input maf>`
+`maf_stream split <output dir> --max_length <max length per file> <input maf>`
 #### Calculating coverage
-`maf_stream <reference genome> [--bed BED_FILE] <input maf> <output file>`
+`maf_stream coverage <reference genome> [--bed BED_FILE] <input maf> <output file>`
 
 If `--bed BED_FILE` is provided, coverage is restricted to be of bases within the regions within the BED file. Note that the BED file should not contain overlaps, i.e. it should be run through `bedtools merge` before being used. BED12 input is also currently disallowed, but will work if split up into BED3.
 
