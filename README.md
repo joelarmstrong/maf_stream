@@ -1,7 +1,7 @@
 ## maf_stream
 `maf_stream` is a collection of utilities to manipulate multiple alignments in the Multiple Alignment Format (MAF).
 ### Installation
-First, install [Rust](https://rustup.rs/). Then, run:
+First, install [Rust](https://rustup.rs/). Then, in the `maf_stream` directory, run:
 ```
 cargo install --path .
 ```
