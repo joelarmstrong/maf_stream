@@ -1,9 +1,9 @@
+use itertools::Itertools;
 use multiple_alignment_format::parser::next_maf_item;
 use multiple_alignment_format::{MAFBlock, MAFItem};
-use std::io::{BufRead, Write, BufWriter};
-use std::path::PathBuf;
 use std::fs::File;
-use itertools::Itertools;
+use std::io::{BufRead, BufWriter, Write};
+use std::path::PathBuf;
 
 struct MAFSplit {
     /// Chromosome of reference within current file.
@@ -23,7 +23,7 @@ impl MAFSplit {
             cur_length: None,
             cur_file: None,
             output_dir: PathBuf::from(output_dir),
-            max_length
+            max_length,
         }
     }
 
@@ -35,11 +35,12 @@ impl MAFSplit {
             let chr = ref_aln.seq.split(".").skip(1).join(".");
             // On any new reference chromosome, or if the file would grow too
             // large, we switch to a new file.
-            if self.cur_chrom.is_none() ||
-                self.cur_length.is_none() ||
-                &chr != self.cur_chrom.as_ref().unwrap() ||
-                self.cur_length.unwrap() + ref_aln.aligned_length > self.max_length {
-                    self.new_file(&chr, ref_aln.start);
+            if self.cur_chrom.is_none()
+                || self.cur_length.is_none()
+                || &chr != self.cur_chrom.as_ref().unwrap()
+                || self.cur_length.unwrap() + ref_aln.aligned_length > self.max_length
+            {
+                self.new_file(&chr, ref_aln.start);
             }
             self.cur_length = self.cur_length.map(|l| l + ref_aln.aligned_length);
         }
@@ -48,7 +49,8 @@ impl MAFSplit {
 
     /// Starts a new file and flushes the old one.
     fn new_file(&mut self, chrom: &str, start_pos: u64) {
-        let f = File::create(self.output_dir.join(format!("{}.{}.maf", chrom, start_pos))).expect("Couldn't create file");
+        let f = File::create(self.output_dir.join(format!("{}.{}.maf", chrom, start_pos)))
+            .expect("Couldn't create file");
         self.cur_file = Some(BufWriter::new(f));
         self.cur_length = Some(0);
         self.cur_chrom = Some(chrom.to_string());
@@ -63,19 +65,18 @@ pub fn split_maf(input: &mut dyn BufRead, max_length: u64, output_dir: &str) {
         match item {
             MAFItem::Block(block) => {
                 splitter.output_block(&block);
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
-    use std::path::Path;
     use std::fs::read_to_string;
+    use std::path::Path;
+    use tempfile::TempDir;
 
     #[test]
     fn test_simple_split() {
@@ -109,8 +110,9 @@ s       Human.chr21     217     32      +       9688985 aacctttcctttgctagagcactt
         assert!(Path::exists(&tempdir.path().join("chr21_chr20.82.maf")));
         assert!(Path::exists(&tempdir.path().join("chr22.193.maf")));
 
-        assert_eq!(read_to_string(&tempdir.path().join("chr21_chr20.0.maf")).unwrap(),
-                                  "##maf version=1
+        assert_eq!(
+            read_to_string(&tempdir.path().join("chr21_chr20.0.maf")).unwrap(),
+            "##maf version=1
 a
 s Rhesus.chr21_chr20 0 54 + 19571763 AATTCTGTGAAGCTTCTTTGAGAGGCTTGGATTTATTTCACACATTCGAACATT
 s Human.chr21 0 54 + 9688985 AGTTCTGAGAAGCTTCTTTGTGAGGCTTGGATTCATTTCACACATTTGAACAtt
@@ -119,22 +121,27 @@ a
 s Rhesus.chr21_chr20 54 28 + 19571763 TGATTGAAGATTTGGAAACAGTCTTTTT
 s Human.chr21 58 27 + 9688985 tgattgtagatctggaaacagtctt-tt
 
-");
+"
+        );
 
-        assert_eq!(read_to_string(&tempdir.path().join("chr21_chr20.82.maf")).unwrap(),
-                                  "##maf version=1
+        assert_eq!(
+            read_to_string(&tempdir.path().join("chr21_chr20.82.maf")).unwrap(),
+            "##maf version=1
 a
 s Rhesus.chr21_chr20 82 16 + 19571763 TGTAAAATCTATAAAG
 s Human.chr21 85 16 + 9688985 tgtgaaatctataaag
 
-");
+"
+        );
 
-        assert_eq!(read_to_string(&tempdir.path().join("chr22.193.maf")).unwrap(),
-                                  "##maf version=1
+        assert_eq!(
+            read_to_string(&tempdir.path().join("chr22.193.maf")).unwrap(),
+            "##maf version=1
 a
 s Rhesus.chr22 193 32 + 19571763 aacctttcctttgctagagcactttggaaata
 s Human.chr21 217 32 + 9688985 aacctttcctttgctagagcactttgaaaata
 
-");
+"
+        );
     }
 }

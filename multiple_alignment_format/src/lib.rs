@@ -53,7 +53,7 @@ pub struct MAFBlockAlignedEntry {
 }
 
 /// Indicates one of the two strands.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Strand {
     Positive,
     Negative,

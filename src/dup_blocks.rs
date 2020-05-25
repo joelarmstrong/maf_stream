@@ -1,5 +1,5 @@
 use multiple_alignment_format::parser::next_maf_item;
-use multiple_alignment_format::{MAFBlock, MAFItem, MAFBlockEntry, MAFBlockAlignedEntry};
+use multiple_alignment_format::{MAFBlock, MAFBlockAlignedEntry, MAFBlockEntry, MAFItem};
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
 
@@ -84,7 +84,11 @@ fn consensus_base(base_counts: &BaseCounts, tie_breaker: &BaseCounts) -> u8 {
     }
 }
 
-fn merge_dup_entries(dup_entries: &HashMap<&str, Vec<&MAFBlockAlignedEntry>>, block_consensus: &[BaseCounts], mode: ConsensusMode) -> Vec<MAFBlockEntry> {
+fn merge_dup_entries(
+    dup_entries: &HashMap<&str, Vec<&MAFBlockAlignedEntry>>,
+    block_consensus: &[BaseCounts],
+    mode: ConsensusMode,
+) -> Vec<MAFBlockEntry> {
     let mut merged_entries = vec![];
     for (_, alignments) in dup_entries.iter() {
         let mut merged_alignment = alignments[0].clone();
@@ -114,8 +118,12 @@ fn get_consensus_info(entries: &[&MAFBlockAlignedEntry]) -> Vec<BaseCounts> {
     let mut counts = vec![];
     let length = entries[0].alignment.len();
     for i in 0..length {
-        let mut count_iter = bases.iter()
-            .map(|b| entries.iter().filter(|e| e.alignment[i].eq_ignore_ascii_case(b)).count());
+        let mut count_iter = bases.iter().map(|b| {
+            entries
+                .iter()
+                .filter(|e| e.alignment[i].eq_ignore_ascii_case(b))
+                .count()
+        });
         counts.push(BaseCounts {
             a: count_iter.next().unwrap(),
             c: count_iter.next().unwrap(),
@@ -126,10 +134,16 @@ fn get_consensus_info(entries: &[&MAFBlockAlignedEntry]) -> Vec<BaseCounts> {
     counts
 }
 
-pub fn output_merged_consensus_blocks(input: &mut dyn BufRead, output: &mut dyn Write, mode: ConsensusMode) {
+pub fn output_merged_consensus_blocks(
+    input: &mut dyn BufRead,
+    output: &mut dyn Write,
+    mode: ConsensusMode,
+) {
     while let Ok(item) = next_maf_item(input) {
         match item {
-            MAFItem::Comment(comment) => { write!(output, "#{}\n", comment).ok(); },
+            MAFItem::Comment(comment) => {
+                write!(output, "#{}\n", comment).ok();
+            }
             MAFItem::Block(mut block) => {
                 let dup_entries = dup_entries_from_block(&block);
                 let aligned_entries: Vec<_> = block.aligned_entries().collect();
@@ -138,12 +152,15 @@ pub fn output_merged_consensus_blocks(input: &mut dyn BufRead, output: &mut dyn 
                 // Clear out duplicated entries within the block.
                 let values: Vec<_> = dup_entries.values().flatten().collect();
                 let mut new_block_entries = block.entries.clone();
-                new_block_entries.retain(|e| match e { MAFBlockEntry::AlignedEntry(a) => !values.contains(&&a), _ => true });
+                new_block_entries.retain(|e| match e {
+                    MAFBlockEntry::AlignedEntry(a) => !values.contains(&&a),
+                    _ => true,
+                });
                 let dup_entries = merge_dup_entries(&dup_entries, &block_counts, mode);
                 block.entries = new_block_entries;
                 block.entries.extend(dup_entries);
                 write!(output, "{}\n", block).ok();
-            },
+            }
         }
     }
 }
@@ -151,12 +168,14 @@ pub fn output_merged_consensus_blocks(input: &mut dyn BufRead, output: &mut dyn 
 pub fn output_dup_blocks(input: &mut dyn BufRead, output: &mut dyn Write) {
     while let Ok(item) = next_maf_item(input) {
         match item {
-            MAFItem::Comment(comment) => { write!(output, "#{}\n", comment).ok(); },
+            MAFItem::Comment(comment) => {
+                write!(output, "#{}\n", comment).ok();
+            }
             MAFItem::Block(block) => {
                 if block_contains_dups(&block) {
                     write!(output, "{}", block).ok();
                 }
-            },
+            }
         }
     }
 }
@@ -253,9 +272,24 @@ s       Alca_torda.scaffold4709 41641   6       -       157682  G-A
             let alignments: Vec<_> = block.aligned_entries().collect();
             let counts = get_consensus_info(&alignments);
             let expected_counts = vec![
-                BaseCounts { a: 0, c: 1, t: 1, g: 1, },
-                BaseCounts { a: 2, c: 0, t: 0, g: 0, },
-                BaseCounts { a: 1, c: 0, t: 0, g: 2, },
+                BaseCounts {
+                    a: 0,
+                    c: 1,
+                    t: 1,
+                    g: 1,
+                },
+                BaseCounts {
+                    a: 2,
+                    c: 0,
+                    t: 0,
+                    g: 0,
+                },
+                BaseCounts {
+                    a: 1,
+                    c: 0,
+                    t: 0,
+                    g: 2,
+                },
             ];
             assert_eq!(counts, expected_counts);
         } else {

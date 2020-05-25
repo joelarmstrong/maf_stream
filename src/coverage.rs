@@ -1,28 +1,8 @@
-use itertools::Itertools;
+use crate::lib::{chrom_part, parse_bed, range_contains_pos, Range};
 use multiple_alignment_format::parser::next_maf_item;
-use multiple_alignment_format::{MAFBlock, MAFItem, MAFBlockAlignedEntry, Strand};
-use std::cmp::{Ordering, Reverse};
+use multiple_alignment_format::{MAFBlock, MAFBlockAlignedEntry, MAFItem, Strand};
 use std::collections::{BTreeSet, HashMap};
 use std::io::{BufRead, Write};
-
-#[derive(PartialEq, Eq, Debug)]
-struct Range {
-    seq: String,
-    start: u64,
-    end: u64,
-}
-
-impl Ord for Range {
-    fn cmp(&self, other: &Self) -> Ordering {
-        (&self.seq, &self.start, Reverse(&self.end)).cmp(&(&other.seq, &other.start, Reverse(&other.end)))
-    }
-}
-
-impl PartialOrd for Range {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
 
 struct MAFCoverage {
     /// Coverage by genome.
@@ -54,6 +34,7 @@ impl MAFCoverage {
     }
 
     fn add_block(&mut self, block: MAFBlock) {
+        dbg!(format!("{}", block));
         let entries = block.entries_as_hash();
         let ref_entries_opt = entries.get::<str>(&self.ref_genome);
         if let Some(ref_entries) = ref_entries_opt {
@@ -63,7 +44,11 @@ impl MAFCoverage {
         }
     }
 
-    fn add_block_with_ref_entry(&mut self, ref_entry: &MAFBlockAlignedEntry, entries: &HashMap<&str, Vec<&MAFBlockAlignedEntry>>) {
+    fn add_block_with_ref_entry(
+        &mut self,
+        ref_entry: &MAFBlockAlignedEntry,
+        entries: &HashMap<&str, Vec<&MAFBlockAlignedEntry>>,
+    ) {
         // Offset within reference sequence (different than offset within block alignment)
         let mut ref_offset = 0;
         for i in 0..ref_entry.alignment.len() {
@@ -79,7 +64,7 @@ impl MAFCoverage {
                 Strand::Negative => ref_entry.sequence_size - ref_entry.start - ref_offset,
             };
             ref_offset += 1;
-            if !self.in_range(&ref_entry.seq.split(".").skip(1).join("."), ref_pos) {
+            if !self.in_range(&chrom_part(&ref_entry.seq), ref_pos) {
                 continue;
             }
             for (genome, genome_entries) in entries {
@@ -100,7 +85,8 @@ impl MAFCoverage {
             }
         }
         if !self.ref_lengths.contains_key(&ref_entry.seq) {
-            self.ref_lengths.insert(ref_entry.seq.clone(), ref_entry.sequence_size);
+            self.ref_lengths
+                .insert(ref_entry.seq.clone(), ref_entry.sequence_size);
         }
     }
 
@@ -111,50 +97,33 @@ impl MAFCoverage {
             Some(set) => set.iter().map(|p| p.end - p.start).sum(),
         };
         for (genome, coverage) in self.coverage.iter() {
-            writeln!(output, "{}\t{}\t{}\t{}\t{}", self.ref_genome, genome,
-                     total, (*coverage as f64) / (total as f64), coverage).ok();
+            writeln!(
+                output,
+                "{}\t{}\t{}\t{}\t{}",
+                self.ref_genome,
+                genome,
+                total,
+                (*coverage as f64) / (total as f64),
+                coverage
+            )
+            .ok();
         }
     }
 
     fn in_range(&self, chrom: &str, position: u64) -> bool {
         match &self.ranges {
             None => true,
-            Some(set) => {
-                let pos = Range {
-                    seq: chrom.to_string(),
-                    start: position,
-                    end: position + 1,
-                };
-                match set.range(..=pos).next_back() {
-                    None => false,
-                    Some(range) => range.seq == chrom && range.start <= position && range.end > position,
-                }
-            },
+            Some(set) => range_contains_pos(set, chrom, position),
         }
     }
 }
 
-fn parse_bed(bed: impl BufRead) -> BTreeSet<Range> {
-    bed.lines()
-       .filter_map(|line_res| {
-           let line = line_res.expect("Can't read line");
-           let fields: Vec<_> = line.split_whitespace().collect();
-           if fields.len() > 9 {
-               panic!("BED12 input not supported");
-           } else if fields.len() > 0 {
-               let seq = fields[0].to_string();
-               let start: u64 = fields[1].parse().expect("Can't parse start position");
-               let end: u64 = fields[2].parse().expect("Can't parse start position");
-               Some(Range { seq, start, end })
-           } else {
-               // Blank line
-               None
-           }
-       }).collect()
-}
-
-pub fn coverage(input: &mut dyn BufRead, output: &mut dyn Write,
-                ref_genome: &str, bed: Option<impl BufRead>) {
+pub fn coverage(
+    input: &mut dyn BufRead,
+    output: &mut dyn Write,
+    ref_genome: &str,
+    bed: Option<impl BufRead>,
+) {
     let ranges = bed.map(parse_bed);
 
     let mut maf_coverage = MAFCoverage::new(ref_genome, ranges);
@@ -163,8 +132,8 @@ pub fn coverage(input: &mut dyn BufRead, output: &mut dyn Write,
         match item {
             MAFItem::Block(block) => {
                 maf_coverage.add_block(block);
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
@@ -196,10 +165,11 @@ mod tests {
             Range {
                 seq: "chrW".to_string(),
                 start: 0,
-                end: 300
-            }
-        ].into_iter()
-         .collect();
+                end: 300,
+            },
+        ]
+        .into_iter()
+        .collect();
         let maf_coverage = MAFCoverage::new("none", Some(ranges));
         assert!(!maf_coverage.in_range("chr0", 0));
         assert!(maf_coverage.in_range("chr1", 20));
@@ -275,13 +245,13 @@ s       Geospiza_fortis.scaffold54      15705654        3       -       19033121
 s       Glareola_pratincola.scaffold_8  396272  3       -       2357087 -C-
 s       Glaucidium_brasilianum.scaffold_161     1648450 3       -       1875072 TTT
 ";
-        let regions: BTreeSet<_> = vec![
-            Range {
-                seq: "scaffold_2093".to_string(),
-                start: 58536,
-                end: 58538,
-            },
-        ].into_iter().collect();
+        let regions: BTreeSet<_> = vec![Range {
+            seq: "scaffold_2093".to_string(),
+            start: 58536,
+            end: 58538,
+        }]
+        .into_iter()
+        .collect();
         let mut maf_coverage = MAFCoverage::new("Erythrocercus_mccallii", Some(regions));
         let item = next_maf_item(&mut block.as_bytes()).expect("Couldn't parse MAF block");
         if let MAFItem::Block(block) = item {
@@ -346,7 +316,9 @@ chr10 10 15
                 start: 10,
                 end: 15,
             },
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
         assert_eq!(ranges, expected_ranges);
     }
 }
