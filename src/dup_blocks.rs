@@ -45,10 +45,7 @@ fn unanimous_base(base_counts: &BaseCounts) -> u8 {
 }
 
 fn max_among_possibilities(base_counts: &BaseCounts, possibilities: &mut [bool; 4]) {
-    let mut max_so_far = 0;
-    if possibilities[0] {
-        max_so_far = base_counts.a;
-    }
+    let mut max_so_far = if possibilities[0] { base_counts.a } else { 0 };
     if possibilities[1] && max_so_far < base_counts.c {
         possibilities[0] = false;
         max_so_far = base_counts.c;
@@ -142,7 +139,7 @@ pub fn output_merged_consensus_blocks(
     while let Ok(item) = next_maf_item(input) {
         match item {
             MAFItem::Comment(comment) => {
-                write!(output, "#{}\n", comment).ok();
+                writeln!(output, "#{}", comment).ok();
             }
             MAFItem::Block(mut block) => {
                 let dup_entries = dup_entries_from_block(&block);
@@ -159,7 +156,7 @@ pub fn output_merged_consensus_blocks(
                 let dup_entries = merge_dup_entries(&dup_entries, &block_counts, mode);
                 block.entries = new_block_entries;
                 block.entries.extend(dup_entries);
-                write!(output, "{}\n", block).ok();
+                writeln!(output, "{}", block).ok();
             }
         }
     }
@@ -169,7 +166,7 @@ pub fn output_dup_blocks(input: &mut dyn BufRead, output: &mut dyn Write) {
     while let Ok(item) = next_maf_item(input) {
         match item {
             MAFItem::Comment(comment) => {
-                write!(output, "#{}\n", comment).ok();
+                writeln!(output, "#{}", comment).ok();
             }
             MAFItem::Block(block) => {
                 if block_contains_dups(&block) {

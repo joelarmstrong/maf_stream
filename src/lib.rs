@@ -43,7 +43,7 @@ pub fn parse_bed(bed: impl BufRead) -> BTreeSet<Range> {
             let fields: Vec<_> = line.split_whitespace().collect();
             if fields.len() > 9 {
                 panic!("BED12 input not supported");
-            } else if fields.len() > 0 {
+            } else if !fields.is_empty() {
                 let seq = fields[0].to_string();
                 let start: u64 = fields[1].parse().expect("Can't parse start position");
                 let end: u64 = fields[2].parse().expect("Can't parse start position");
@@ -86,7 +86,7 @@ pub fn overlapping_ranges<'a>(
 
 /// Get "chr.name" from "genome.chr.name".
 pub fn chrom_part(seq: &str) -> String {
-    seq.split(".").skip(1).join(".")
+    seq.split('.').skip(1).join(".")
 }
 
 #[cfg(test)]

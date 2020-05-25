@@ -35,17 +35,17 @@ impl fmt::Display for MAFBlock {
         for (key, value) in self.metadata.iter() {
             write!(f, " {}={}", key, value)?;
         }
-        write!(f, "\n")?;
+        writeln!(f)?;
         for entry in self.entries.iter() {
             match entry {
                 MAFBlockEntry::AlignedEntry(e) => {
-                    write!(f, "s {} {} {} {} {} {}\n",
+                    writeln!(f, "s {} {} {} {} {} {}",
                            e.seq, e.start, e.aligned_length,
                            if e.strand == Strand::Positive { "+" } else { "-" },
                            e.sequence_size,
                            str::from_utf8(&e.alignment).expect("alignment not utf8 compatible"))?;
                     if let Some(ref context) = e.context {
-                        write!(f, "i {} {} {} {} {}\n",
+                        writeln!(f, "i {} {} {} {} {}",
                                e.seq,
                                aligned_context_status_char(&context.left_status),
                                context.left_count,
@@ -54,7 +54,7 @@ impl fmt::Display for MAFBlock {
                     }
                 },
                 MAFBlockEntry::UnalignedEntry(e) => {
-                    write!(f, "e {} {} {} {} {} {}\n",
+                    writeln!(f, "e {} {} {} {} {} {}",
                     e.seq, e.start, e.size,
                     if e.strand == Strand::Positive { "+" } else { "-" },
                     e.sequence_size,
@@ -62,7 +62,7 @@ impl fmt::Display for MAFBlock {
                 },
             }
         }
-        write!(f, "\n")
+        writeln!(f)
     }
 }
 

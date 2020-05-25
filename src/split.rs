@@ -32,7 +32,7 @@ impl MAFSplit {
     fn output_block(&mut self, block: &MAFBlock) {
         let ref_line = block.aligned_entries().next();
         if let Some(ref_aln) = ref_line {
-            let chr = ref_aln.seq.split(".").skip(1).join(".");
+            let chr = ref_aln.seq.split('.').skip(1).join(".");
             // On any new reference chromosome, or if the file would grow too
             // large, we switch to a new file.
             if self.cur_chrom.is_none()
@@ -62,11 +62,8 @@ pub fn split_maf(input: &mut dyn BufRead, max_length: u64, output_dir: &str) {
     let mut splitter = MAFSplit::new(output_dir, max_length);
 
     while let Ok(item) = next_maf_item(input) {
-        match item {
-            MAFItem::Block(block) => {
-                splitter.output_block(&block);
-            }
-            _ => {}
+        if let MAFItem::Block(block) = item {
+            splitter.output_block(&block);
         }
     }
 }

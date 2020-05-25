@@ -149,7 +149,7 @@ impl MAFBlock {
 
     pub fn entries_as_hash(&self) -> HashMap<&str, Vec<&MAFBlockAlignedEntry>> {
         self.aligned_entries()
-            .map(|a| (a.seq.split(".").next().unwrap(), a))
+            .map(|a| (a.seq.split('.').next().unwrap(), a))
             .fold(HashMap::new(), |mut acc: HashMap<&str, Vec<&MAFBlockAlignedEntry>>, (species, a)| { acc.entry(species).or_insert_with(Vec::new).push(a); acc })
     }
 }

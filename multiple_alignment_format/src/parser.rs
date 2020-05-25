@@ -23,9 +23,9 @@ impl<'a, B: io::BufRead> Iterator for LinesRef<'a, B> {
         match self.buf.read_line(&mut buf) {
             Ok(0) => None,
             Ok(_n) => {
-                if buf.ends_with("\n") {
+                if buf.ends_with('\n') {
                     buf.pop();
-                    if buf.ends_with("\r") {
+                    if buf.ends_with('\r') {
                         buf.pop();
                     }
                 }
@@ -59,14 +59,14 @@ pub fn next_maf_item<T: io::BufRead + ?Sized>(mut input: &mut T) -> Result<MAFIt
         let lines = LinesRef { buf: &mut input };
         for line_res in lines {
             let line: String = line_res?;
-            if line.trim().len() == 0 {
+            if line.trim().is_empty() {
                 // Blank line
                 continue;
             }
-            if line.starts_with("#") {
+            if line.starts_with('#') {
                 // MAF comment
                 return Ok(MAFItem::Comment(line.chars().skip(1).collect()));
-            } else if line.starts_with("a") {
+            } else if line.starts_with('a') {
                 // Start of a block
                 header = Some(line);
                 break;
@@ -82,7 +82,7 @@ pub fn next_maf_item<T: io::BufRead + ?Sized>(mut input: &mut T) -> Result<MAFIt
 
 // Go from "key=value" to "(key, value)".
 fn split_metadata_pairs(pair: &str) -> Result<(String, String), MAFParseError> {
-    let mut iter = pair.split("=");
+    let mut iter = pair.split('=');
     let first = iter.next().ok_or(MAFParseError::BadMetadata)?;
     let second = iter.next().ok_or(MAFParseError::BadMetadata)?;
     Ok((first.to_string(), second.to_string()))
@@ -121,10 +121,10 @@ fn update_from_s_line(fields: &mut Vec<&str>, block_entries: &mut Vec<MAFBlockEn
     block_entries.push(MAFBlockEntry::AlignedEntry(MAFBlockAlignedEntry {
         alignment: alignment.as_bytes().to_vec(),
         seq: seq.to_string(),
-        start: start,
-        aligned_length: aligned_length,
-        sequence_size: sequence_size,
-        strand: strand,
+        start,
+        aligned_length,
+        sequence_size,
+        strand,
         context: None,
         qualities: None,
     }));
@@ -161,14 +161,14 @@ fn update_from_i_line(fields: &mut Vec<&str>, block_entries: &mut Vec<MAFBlockEn
         .ok_or(MAFParseError::Misc("i line incomplete"))?;
 
     let context = AlignedContext {
-        left_status: left_status,
-        left_count: left_count,
-        right_status: right_status,
-        right_count: right_count,
+        left_status,
+        left_count,
+        right_status,
+        right_count,
     };
 
     let last_entry = block_entries.pop()
-        .ok_or(MAFParseError::UnexpectedLine("i line cannot be first in block".to_owned()))?;
+        .ok_or_else(|| MAFParseError::UnexpectedLine("i line cannot be first in block".to_owned()))?;
     match last_entry {
         MAFBlockEntry::AlignedEntry(mut e) => {
             if e.seq != seq {
@@ -208,12 +208,12 @@ fn update_from_e_line(fields: &mut Vec<&str>, block_entries: &mut Vec<MAFBlockEn
         _   => return Err(MAFParseError::Misc("invalid unaligned context status character")),
     };
     block_entries.push(MAFBlockEntry::UnalignedEntry(MAFBlockUnalignedEntry {
-        status: status,
+        status,
         seq: seq.to_string(),
-        start: start,
-        sequence_size: sequence_size,
+        start,
+        sequence_size,
         size: unaligned_length,
-        strand: strand,
+        strand,
     }));
     Ok(())
 }
@@ -225,7 +225,7 @@ pub fn parse_block(header: String, iter: impl Iterator<Item = Result<String, io:
  
     for line_res in iter {
         let line: String = line_res?;
-        if line.len() == 0 {
+        if line.is_empty() {
             // Blank lines terminate the "paragraph".
             break;
         }

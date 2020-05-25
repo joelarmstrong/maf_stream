@@ -77,7 +77,7 @@ impl MAFCoverage {
                 }
                 if found_alignment {
                     if !self.coverage.contains_key(*genome) {
-                        self.coverage.insert(genome.to_string(), 0);
+                        self.coverage.insert((*genome).to_string(), 0);
                     }
                     let coverage = self.coverage.get_mut(*genome).unwrap();
                     *coverage += 1;
@@ -129,11 +129,8 @@ pub fn coverage(
     let mut maf_coverage = MAFCoverage::new(ref_genome, ranges);
 
     while let Ok(item) = next_maf_item(input) {
-        match item {
-            MAFItem::Block(block) => {
-                maf_coverage.add_block(block);
-            }
-            _ => {}
+        if let MAFItem::Block(block) = item {
+            maf_coverage.add_block(block);
         }
     }
 

@@ -26,16 +26,13 @@ fn get_filtered_columns(ref_entry: &MAFBlockAlignedEntry, ranges: &BTreeSet<Rang
     );
     let mut current_range = relevant_ranges.next();
     let mut current_pos = ref_entry.start;
+    let end = ref_entry.start + ref_entry.aligned_length;
     let mut was_within_run = false;
     for (i, c) in ref_entry.alignment.iter().enumerate() {
         while current_range.map_or(false, |r| r.precedes(&chrom, current_pos)) {
             current_range = relevant_ranges.next();
         }
-        if current_range.is_none()
-            || current_range.map_or(false, |r| {
-                r.succeeds(&chrom, ref_entry.start + ref_entry.aligned_length)
-            })
-        {
+        if current_range.map_or(true, |r| r.succeeds(&chrom, end)) {
             break;
         }
         let mut within_run = false;
@@ -111,7 +108,7 @@ pub fn filter(input: &mut dyn BufRead, output: &mut dyn Write, bed: impl BufRead
     while let Ok(item) = next_maf_item(input) {
         match item {
             MAFItem::Comment(comment) => {
-                write!(output, "#{}\n", comment).ok();
+                writeln!(output, "#{}", comment).ok();
             }
             MAFItem::Block(block) => {
                 for filtered_block in filter_block(&block, &ranges) {
